@@ -89,7 +89,7 @@ class HTTPRequest < HTTPHeader
       body = client.read(headers["Content-Length"].to_i)
     end
 
-    HTTPRequest.new(method, path, headers, body)
+    HTTPRequest.new(method, path, body, headers)
   end
 end
 
@@ -203,7 +203,7 @@ class HTTPHandler
   # Calls the handler with information about the request
   # @param request_info [HTTPRequest] information to pass to the block
   def handle request_info
-	@handler.call arg request_info
+	@handler.call request_info
   end
 end
 
@@ -309,7 +309,7 @@ class HTTPServer
 
     return handle_error(request, 404) if routes.empty?
 
-    HTTPResponse.new(200, {}, (routes.first.handler.call request))
+    HTTPResponse.new(200, (routes.first.handle request))
 
   end
 
@@ -324,14 +324,14 @@ class HTTPServer
 
     return default_error(code) if routes.empty?
 
-    response = HTTPResponse.new(code, {}, (routes.first.handler.call request))
+    response = HTTPResponse.new(code, (routes.first.handle request))
 
   end
 
   # Return HTML code for given error
   # @param error [Integer] error code
   private def default_error(code)
-    HTTPResponse.new(code, {}, "<h1>Error #{code.to_HTTPStatus}<h1><hr><i>#{@server_name}</i>")
+    HTTPResponse.new(code, "<h1>Error #{code.to_HTTPStatus}<h1><hr><i>#{@server_name}</i>")
   end
 
 end
