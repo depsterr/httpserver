@@ -1,8 +1,9 @@
+require 'cgi'
 require 'socket'
 require 'date'
 
 # TODO:
-# * Have requests parse variables (form and json format)
+# * Have requests parse parameters (form and json format)
 # * Create route handler creators for all request methods
 # * Let user expose files/paths
 
@@ -11,7 +12,7 @@ require 'date'
 # and responses share
 class HTTPHeader
 
-  attr_accessor :headers, :body
+  attr_accessor :headers, :body, :parameters
 
   # Create a new header, optionally taking a body and some headers
   # @param first_line [String] the top first of the header
@@ -19,11 +20,11 @@ class HTTPHeader
   # @param headers [Hash] http headers keys and values
   # @return [HTTPHeader]
 
-  def initialize(first_line, body="", headers={})
+  def initialize(first_line, body="", headers={}, parameters={})
     @headers=headers
     @first_line = first_line
     @body = body
-
+    @parameters = parameters
   end
 
   # Generates a full HTML body string
@@ -57,10 +58,10 @@ class HTTPRequest < HTTPHeader
   # @param body [String] the body of the request
   # @param headers [Hash] http headers keys and values
   # @return [HTTPRequest]
-  def initialize(method, path, body="", headers={})
+  def initialize(method, path, body="", headers={}, parameters={})
     @method = method
     @path = path
-    super("#{method} #{path} HTTP/1.1", body, headers)
+    super("#{method} #{path} HTTP/1.1", body, headers, parameters)
   end
 
   # Create a new request by reading from a file or socket connection
@@ -68,10 +69,12 @@ class HTTPRequest < HTTPHeader
   # @return [HTTPRequest]
   def self.read(file)
     lines = []
-    line = file.gets.chomp
-    until line.empty?
+    line = file.gets
+    line.chomp! unless line.nil?
+    until line.nil? || line.empty?
       lines << line
-      line = file.gets.chomp
+      line = file.gets
+      line.chomp! unless line.nil?
     end
 
     method = lines[0].split[0]
@@ -167,7 +170,6 @@ end
 
 # Represents an HTTP response to be sent to clients
 class HTTPResponse < HTTPHeader
-
   attr_reader :code
 
   # Create a new request, optionally taking a body and some headers
@@ -175,9 +177,9 @@ class HTTPResponse < HTTPHeader
   # @param body [String] the body of the request
   # @param headers [Hash] http headers keys and values
   # @return [HTTPRequest]
-  def initialize(code, body="", headers={})
+  def initialize(code, body="", headers={}, parameters={})
     @code = code
-    super("HTTP/1.1 #{code.to_HTTPStatus}", body, headers)
+    super("HTTP/1.1 #{code.to_HTTPStatus}", body, headers, parameters)
   end
 
   # Overloaded autoheaders
@@ -290,6 +292,13 @@ class HTTPServer
       client.close
 
     end
+  end
+
+  # escape an html string
+  # @param str [String] string to escape
+  # @@return [String] escaped string
+  def escape_html str
+    CGI::escapeHTML str
   end
 
   # Stop the webserver

@@ -2,8 +2,10 @@ require_relative 'http.rb'
 
 server = HTTPServer.new
 
-server.get "/" do
-  "<h1>Hi!</h1>"
+server.get "/" do |r|
+  "<pre><code>Method: #{r.method}
+Path: #{r.path}
+Headers: #{r.headers}</pre></code>"
 end
 
 server.get "/hi" do
