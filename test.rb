@@ -4,17 +4,24 @@ require 'pp'
 server = HTTPServer.new
 
 server.get "/" do |r|
-  pp r
-  "<pre><code>Method: #{r.method}
+%Q[<pre><code>Method: #{r.method}
 Path: #{r.path}
 Params: #{r.parameters}
-Headers: #{r.headers}</pre></code>"
+Headers: #{r.headers}</pre></code>
+
+<form action="/submit" method="post">
+  <label for="username">username</label>
+  <input type="text" name="username"><br>
+  <label for="password">password</label>
+  <input type="password" name="password"><br>
+  <input type="submit" value="Give me your credentials :)">
+</form>]
 end
 
-server.get "/hi" do
-  "<h1>Hello!</h1>"
+server.post "/submit" do |r|
+%Q[<p>username: #{r.parameters["username"]}<br>
+password: #{r.parameters["password"]}</p>]
 end
-
 
 server.get "/stop" do
   server.abort
