@@ -353,7 +353,7 @@ class HTTPServer
   # escape an html string
   # @param str [String] string to escape
   # @@return [String] escaped string
-  def escape_html str
+  def self.escape_html str
     CGI::escapeHTML str
   end
 
@@ -365,6 +365,8 @@ class HTTPServer
   end
 
   # Convert a http get string to a hash
+  # @param string [String] string to convert
+  # @return [Hash] "key" => "val" hash
   def self.parameter_hash_from_string string
     params = {}
     unless string.nil?
