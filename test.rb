@@ -1,10 +1,13 @@
 require_relative 'http.rb'
+require 'pp'
 
 server = HTTPServer.new
 
 server.get "/" do |r|
+  pp r
   "<pre><code>Method: #{r.method}
 Path: #{r.path}
+Params: #{r.parameters}
 Headers: #{r.headers}</pre></code>"
 end
 

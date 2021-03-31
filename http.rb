@@ -1,11 +1,11 @@
 require 'cgi'
+require 'json'
 require 'socket'
 require 'date'
 
 # TODO:
-# * Have requests parse parameters (form and json format)
-# * Create route handler creators for all request methods
-# * Let user expose files/paths
+# * Let users expose/bind files/paths
+# * Reposnse header setter and redirect function
 
 # HTTPHeader superclass
 # Provides the basis of HTTP headers which both requests
@@ -21,7 +21,7 @@ class HTTPHeader
   # @return [HTTPHeader]
 
   def initialize(first_line, body="", headers={}, parameters={})
-    @headers=headers
+    @headers = headers
     @first_line = first_line
     @body = body
     @parameters = parameters
@@ -77,22 +77,38 @@ class HTTPRequest < HTTPHeader
       line.chomp! unless line.nil?
     end
 
-    method = lines[0].split[0]
-    path = lines[0].split[1]
+    linez = lines[0].split
+    method = linez[0]
+
+    pathparams = linez[1].split("?", 2)
+    path = CGI.unescape pathparams[0]
+
+    params = HTTPServer.parameter_hash_from_string pathparams[1]
 
     headers = {}
     index = nil
     body = ""
     lines[1..].each do |line|
-      pair = line.split.map { |l| l.split(":") }
+      pair = line.split(":", 2).map(&:strip)
       headers.merge! pair[0] => pair[1]
     end
 
     unless headers["Content-Length"].nil?
-      body = client.read(headers["Content-Length"].to_i)
+      body = file.read(headers["Content-Length"].to_i)
     end
 
-    HTTPRequest.new(method, path, body, headers)
+    # Parse body
+
+    unless body.empty?
+      case headers["Content-Type"]
+      when "application/json"
+        params.merge! JSON.parse body
+      else
+        params.merge! HTTPServer.parameter_hash_from_string body
+      end
+    end
+
+    HTTPRequest.new(method, path, body, headers, params)
   end
 end
 
@@ -249,23 +265,75 @@ class HTTPServer
     @host = host
     @port = port
     @log = log
+    @server_name = server_name
     @routes = []
     @error_routes = []
+    @threads = []
     @running = true # not running yet, but needed to make launching work
   end
 
   # Register a HTTPRoute for GET requests
   # @param path [String, Regex] path to match (just needs to respond to matches?)
-  # @yield block responsible for generating html
+  # @yield block responsible for generating response
   def get(path, &block)
     @routes << HTTPRoute.new("GET", path, &block) 
   end
 
+  # Register a HTTPRoute for HEAD requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def head(path, &block)
+    @routes << HTTPRoute.new("HEAD", path, &block) 
+  end
+
   # Register a HTTPRoute for POST requests
   # @param path [String, Regex] path to match (just needs to respond to matches?)
-  # @yield block responsible for generating html
+  # @yield block responsible for generating response
   def post(path, &block)
     @routes << HTTPRoute.new("POST", path, &block)
+  end
+
+
+  # Register a HTTPRoute for PUT requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def put(path, &block)
+    @routes << HTTPRoute.new("PUT", path, &block)
+  end
+
+  # Register a HTTPRoute for DELETE requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def delete(path, &block)
+    @routes << HTTPRoute.new("DELETE", path, &block)
+  end
+
+  # Register a HTTPRoute for CONNECT requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def connect(path, &block)
+    @routes << HTTPRoute.new("CONNECT", path, &block)
+  end
+
+  # Register a HTTPRoute for OPTIONS requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def options(path, &block)
+    @routes << HTTPRoute.new("OPTIONS", path, &block)
+  end
+
+  # Register a HTTPRoute for TRACE requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def trace(path, &block)
+    @routes << HTTPRoute.new("TRACE", path, &block)
+  end
+
+  # Register a HTTPRoute for PATCH requests
+  # @param path [String, Regex] path to match (just needs to respond to matches?)
+  # @yield block responsible for generating response
+  def patch(path, &block)
+    @routes << HTTPRoute.new("PATCH", path, &block)
   end
 
   # Register a HTTPErrorRoute
@@ -279,19 +347,7 @@ class HTTPServer
   def launch
     STDERR.puts "Now listening on #{@host}:#{@port}!" if @log
     server = TCPServer.new @host, @port
-    while @running
-      client = server.accept
-
-      request = HTTPRequest.read client
-      STDERR.puts "#{request.method} request for resource '#{request.path}'." if @log
-
-      response = handle request
-      STDERR.puts "=> #{response.code}." if @log
-
-      client.write(response.body)
-      client.close
-
-    end
+    event_loop server
   end
 
   # escape an html string
@@ -305,6 +361,50 @@ class HTTPServer
   def abort
     STDERR.puts "Stopping webserver" if @log
     @running = false
+    @threads.map(&:join)
+  end
+
+  # Convert a http get string to a hash
+  def self.parameter_hash_from_string string
+    params = {}
+    unless string.nil?
+      string.split("&").each do |param|
+        keyval = param.split("=", 2).map(&:strip)
+        params.merge! keyval[0] => keyval[1]
+      end
+    end
+
+    return params
+  end
+
+  # The main event loop for handling incoming requests
+  # @params server [TCPServer] a TCPServer to accept clients from
+  private def event_loop server
+    while @running
+      client = server.accept
+
+      @threads << Thread.new do
+
+        begin
+          request = HTTPRequest.read client
+          STDERR.puts "#{request.method} request for resource '#{request.path}'." if @log
+          begin
+            response = handle request
+          rescue => e
+            STDERR.puts "#{e} raised when handling request" if @log
+            response = handle_error(request, 500)
+          end
+        rescue => e
+          STDERR.puts "#{e} raised when parsing request" if @log
+          response = handle_error(nil, 400)
+        end
+
+        STDERR.puts "=> #{response.code.to_HTTPStatus}." if @log
+
+        client.write(response.body)
+        client.close
+      end
+    end
   end
 
   # Handle a request
@@ -340,7 +440,7 @@ class HTTPServer
   # Return HTML code for given error
   # @param error [Integer] error code
   private def default_error(code)
-    HTTPResponse.new(code, "<h1>Error #{code.to_HTTPStatus}<h1><hr><i>#{@server_name}</i>")
+    return HTTPResponse.new(code, "<h1>Error #{code.to_HTTPStatus}</h1><hr><i>#{@server_name}</i>")
   end
 
 end
