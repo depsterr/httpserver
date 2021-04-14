@@ -4,6 +4,7 @@ require 'socket'
 require 'date'
 
 # TODO:
+# * URGENT: FIX DIRECTORY TRAVERSAL IN HTTPPaths ! ! ! ! 
 # * Let users expose/bind files/paths
 # * Reposnse header setter and redirect function
 # * Refactor options into hash, let user define
