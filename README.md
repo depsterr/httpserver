@@ -38,4 +38,6 @@ end
 server.get "/search" do |r|
 %Q["<h1>Search results for '#{r.parameters['query']}'</h1>"]
 end
+
+server.launch
 ```
