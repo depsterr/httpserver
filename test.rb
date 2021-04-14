@@ -3,6 +3,8 @@ require 'pp'
 
 server = HTTPServer.new
 
+server.expose "./pub", "/"
+
 server.get "/" do |r|
 %Q[<pre><code>Method: #{r.method}
 Path: #{r.path}

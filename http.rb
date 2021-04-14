@@ -6,6 +6,8 @@ require 'date'
 # TODO:
 # * Let users expose/bind files/paths
 # * Reposnse header setter and redirect function
+# * Refactor options into hash, let user define
+#     options in file.
 
 # HTTPHeader superclass
 # Provides the basis of HTTP headers which both requests
@@ -313,6 +315,7 @@ class HTTPServer
     @routes = []
     @error_routes = []
     @threads = []
+    @paths = []
     @running = true # not running yet, but needed to make launching work
   end
 
@@ -475,7 +478,27 @@ class HTTPServer
       route.path.match?(request.path) && route.method == request.method
     end
 
-    return handle_error(request, 404) if routes.empty?
+    if routes.empty?
+      paths = @paths.select do |path| 
+        path.match? request.path
+      end
+
+      unless paths.empty?
+        filepath = paths.first.file(request.path)
+        if File.file? filepath
+          if File.readable? filepath
+            # TODO: detect mime type
+            return HTTPResponse.new(200, File.read(filepath))
+          else
+            return handle_error(request, 403)
+          end
+        elsif File.directory? filepath
+          # TODO: option for serving directory listings
+        end
+      end
+
+      return handle_error(request, 404) 
+    end
 
     HTTPResponse.new(200, (routes.first.handle request))
 
