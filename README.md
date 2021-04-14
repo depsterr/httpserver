@@ -11,3 +11,7 @@ The api which prompted the creation of this project in the first place was the g
 Project structure
 -----------------
 Currently the `http.rb` file contains the entire library and `test.rb` is used for testing. Once the project is more mature it should be defined as a gem.
+
+Depends
+-------
+At the time of writing the project only depends on the ruby standard libraries.
