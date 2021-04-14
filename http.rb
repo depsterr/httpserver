@@ -435,8 +435,13 @@ class HTTPServer
   # @params server [TCPServer] a TCPServer to accept clients from
   private def event_loop server
     while @running
+      # clean up dead threads
+      @threads = @threads.select(&:alive?)
+
+      # wait for client
       client = server.accept
 
+      # serve client
       @threads << Thread.new do
 
         begin
