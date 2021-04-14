@@ -15,3 +15,27 @@ Currently the `http.rb` file contains the entire library and `test.rb` is used f
 Depends
 -------
 At the time of writing the project only depends on the ruby standard libraries.
+
+Example Usage
+-------------
+Here is a simple example of how http.rb could be used
+
+```rb
+require_relative 'http.rb'
+
+server = HTTPServer.new 80, 0.0.0.0
+
+server.expose "resources/images", "/img"
+
+server.get "/" do
+%Q[<form action="/search" method="get">
+  <label for="query">query</label>
+  <input type="text" name="query"><br>
+  <input type="submit" value="search">
+</form>]
+end
+
+server.get "/search" do |r|
+%Q["<h1>Search results for '#{r.parameters['query']}'</h1>"]
+end
+```
