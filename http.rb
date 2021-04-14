@@ -8,9 +8,10 @@ require 'date'
 # * Reposnse header setter and redirect function
 # * Refactor options into hash, let user define
 #     options in file.
+# * HTTPS [?]
 # * Session system [?]
 # * CSRF token system [?]
-# * Abstraction layer for slim, erb or another template lang
+# * Abstraction layer for slim, erb or another template lang [?]
 
 # HTTPHeader superclass
 # Provides the basis of HTTP headers which both requests
