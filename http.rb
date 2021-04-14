@@ -254,6 +254,50 @@ class HTTPErrorRoute < HTTPHandler
   end
 end
 
+# A class which represents a filepath exposed to the server
+class HTTPPath
+  # Constructs a HTTPPath object
+  # @param local_path [String] the path to the file or directory which to expose
+  # @param web_path [String] the path at which the resource will be made available on the web
+  # @param recursive [Bool] recursively expose directories if local_path is a directory? (defaults to true)
+  def initialize(local_path, web_path, recursive=true)
+    @local_path = local_path.chomp '/'
+    @web_path = web_path
+    @recursive = recursive
+  end
+
+  # Return the local path of a web resource matching
+  # this path. Make sure the resource matches before
+  # using this.
+  # @param path [String] the web path. if this is nil
+  #                      it returns @local_path.
+  # @return [String] the local path.
+  def file(path=nil)
+    return @local_path if path == nil
+
+    path = path.chomp "/"
+
+    return "#{@local_path.chomp "/"}/#{path.delete_prefix @web_path}"
+  end
+
+  # Check if a path matches this HTTPPath
+  # @param path [String] the path to match against
+  # @return [Bool]
+  def match? path
+    path = path.chomp "/"
+    return true  if path == @web_path
+    return false if path.length <= @web_path.length
+
+    return false unless path[0..(@web_path.length - 1)] == @web_path
+
+    unless @recursive
+      return false if path[(@web_path.length)..].include? "/"
+    end
+
+    return true
+  end
+end
+
 # Represents a server
 class HTTPServer
   # Construct a HTTPServer object
@@ -270,6 +314,14 @@ class HTTPServer
     @error_routes = []
     @threads = []
     @running = true # not running yet, but needed to make launching work
+  end
+
+  # Expose resources from the local machine to the internet
+  # @param local_path [String] the path to the file or directory which to expose
+  # @param web_path [String] the path at which the resource will be made available on the web
+  # @param recursive [Bool] recursively expose directories if local_path is a directory? (defaults to true)
+  def expose(local_path, web_path, recursive=true)
+    @paths << HTTPPath.new(local_path, web_path, recursive) 
   end
 
   # Register a HTTPRoute for GET requests
