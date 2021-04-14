@@ -19,7 +19,7 @@ require 'date'
 # and responses share
 class HTTPHeader
 
-  attr_accessor :headers, :body, :parameters
+  attr_accessor :headers, :body
 
   # Create a new header, optionally taking a body and some headers
   # @param first_line [String] the top first of the header
@@ -27,11 +27,10 @@ class HTTPHeader
   # @param headers [Hash] http headers keys and values
   # @return [HTTPHeader]
 
-  def initialize(first_line, body="", headers={}, parameters={})
+  def initialize(first_line, body="", headers={})
     @headers = headers
     @first_line = first_line
     @body = body
-    @parameters = parameters
   end
 
   # Generates a full HTML body string
@@ -57,7 +56,7 @@ end
 # Represents an incoming HTTP request
 class HTTPRequest < HTTPHeader
 
-  attr_accessor :method, :path
+  attr_accessor :method, :path, :parameters
 
   # Create a new request, optionally taking a body and some headers
   # @param method [String] request method, e.g GET or POST
@@ -68,7 +67,8 @@ class HTTPRequest < HTTPHeader
   def initialize(method, path, body="", headers={}, parameters={})
     @method = method
     @path = path
-    super("#{method} #{path} HTTP/1.1", body, headers, parameters)
+    @parameters = parameters
+    super("#{method} #{path} HTTP/1.1", body, headers)
   end
 
   # Create a new request by reading from a file or socket connection
@@ -200,9 +200,9 @@ class HTTPResponse < HTTPHeader
   # @param body [String] the body of the request
   # @param headers [Hash] http headers keys and values
   # @return [HTTPRequest]
-  def initialize(code, body="", headers={}, parameters={})
+  def initialize(code, body="", headers={})
     @code = code
-    super("HTTP/1.1 #{code.to_HTTPStatus}", body, headers, parameters)
+    super("HTTP/1.1 #{code.to_HTTPStatus}", body, headers)
   end
 
   # Overloaded autoheaders
